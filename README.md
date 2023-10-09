@@ -2,6 +2,7 @@
 
 因为canvas加载图片需要在支持CROS的web服务器运行
 > index.html:1 Access to image at 'file:///xxxxxx/matting/h.jpg' from origin 'null' has been blocked by CORS policy: Cross origin requests are only supported for protocol schemes: http, data, isolated-app, chrome-extension, chrome, https, chrome-untrusted.
+
 所以我们使用 http-server 开启一个web服务器
 
 运行
