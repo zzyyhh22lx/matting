@@ -14,8 +14,8 @@ npm run dev
 访问 http://127.0.0.1:5000/ 即可
 
 效果如下：
+[qq22918914922917714320231017173503.pdf](https://github.com/zzyyhh22lx/matting/files/12926982/qq22918914922917714320231017173503.pdf)
 
-https://github.com/zzyyhh22lx/matting/assets/102452253/1f41c89e-6f66-4892-8ea9-158de6b543d0
 
 
 使用：
