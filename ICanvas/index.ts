@@ -64,6 +64,7 @@ class ICanvas {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d", { willReadFrequently: true })!;
 
+        // 克隆canvas，方便原图切割图片
         this.canvas_clone = document.createElement("canvas");
         this.canvas_clone.width = this.WIDTH;
         this.canvas_clone.height = this.HEIGHT;
@@ -71,6 +72,8 @@ class ICanvas {
 
         this.history = [];
         this.ctxs = [];
+
+        // 位置
         this.areas = [];
 
         this.lineStatus = false;
@@ -177,7 +180,7 @@ class ICanvas {
     clickPoint(e: MouseEvent) {
         if (!this.canDraw) return; // 判断用户选中了已画的某个区域，就不再画点了
         let firstPoint = false; // 是不是这个区域的第一个点
-        let area = null;
+        let area: (Area | null) = null;
         if (!this.lineStatus) { // 第一个点
             this.lineStatus = true;
             area = new Area();

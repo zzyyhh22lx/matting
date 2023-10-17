@@ -21,7 +21,7 @@ npm run dev
 const canvas = document.getElementById("myCanvas");
 const btn = document.getElementById("btn");
 const imgSrc = "./h.jpg";
-const iCanvas = new ICanvas(canvas, imgSrc);
+const iCanvas = new SCanvas(canvas, imgSrc);
 btn.onclick = () => {
     base64Img.src = iCanvas.getSelectImage();
     // iCanvas.undo(); 撤回上一步操作

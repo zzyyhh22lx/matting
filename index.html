@@ -11,22 +11,49 @@
             width: 800px;
             height: 500px;
         }
+        #base64Img2 {
+            width: 400px;
+            height: 400px;
+        }
     </style>
 </head>
 <body>
-    <canvas id="myCanvas" width="800" height="500"></canvas>
-    <button id="btn4">查看图片</button>
-    <img src="" id="base64Img">
-
+    <div id="app">
+        <canvas id="myCanvas" width="800" height="500"></canvas>
+        <button id="btn">增加图层</button>
+        <button id="btn2">查看图片</button>
+        <button id="btn3">撤销上一步操作</button>
+        <button id="btn5">单点框选图层</button>
+        <button id="btn6">长按框选图层</button>
+        <button id="btn7">点击图层高亮</button>
+        <button id="btn8">重置</button>
+        <img src="" id="base64Img">
+    </div>
     <script>
-        const canvas = document.getElementById("myCanvas");
-        const imgSrc = "./h.jpg";
-        const iCanvas = new ICanvas(canvas, imgSrc);
-        btn4.onclick = () => {
-            base64Img.src = iCanvas.getSelectImage();
-            // iCanvas.undo();
-            // iCanvas.reset();
-        }
+const canvas = document.getElementById("myCanvas");
+const imgSrc = "./bg.png";
+const iCanvas = new SCanvas(canvas, imgSrc);
+btn.onclick = () => {
+    iCanvas.addImage('./mg3.png')
+}
+btn2.onclick = () => {
+    base64Img.src = iCanvas.getSelectImage();
+}
+btn3.onclick = () => {
+    iCanvas.undo();
+}
+btn5.onclick = () => {
+    iCanvas.single_Event();
+}
+btn6.onclick = () => {
+    iCanvas.setSelect_Event();
+}
+btn7.onclick = () => {
+    iCanvas.setDownCanvas_Event();
+}
+btn8.onclick = () => {
+    iCanvas.reset();
+}
     </script>
 </body>
 </html>
