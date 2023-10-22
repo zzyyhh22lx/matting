@@ -15,6 +15,17 @@
             width: 400px;
             height: 400px;
         }
+        canvas {
+            border: 1px solid black;
+        }
+        #context-menu {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 5px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -23,16 +34,44 @@
         <button id="btn">增加图层</button>
         <button id="btn2">查看图片</button>
         <button id="btn3">撤销上一步操作</button>
+        <button id="btn4">查看点</button>
         <button id="btn5">单点框选图层</button>
         <button id="btn6">长按框选图层</button>
         <button id="btn7">点击图层高亮</button>
         <button id="btn8">重置</button>
         <img src="" id="base64Img">
     </div>
+    <canvas id="minimap" width="160" height="100" style="position: fixed; top: 10px; right: 10px;"></canvas>
+    <!-- 鼠标右键菜单栏 -->
+    <div id="context-menu">
+        <button id="deleted">Delete</button>
+    </div>
     <script>
 const canvas = document.getElementById("myCanvas");
+const contextMenu = document.getElementById("context-menu");
+const minimap = document.getElementById('minimap');
+
 const imgSrc = "./bg.png";
-const iCanvas = new SCanvas(canvas, imgSrc);
+const iCanvas = new SCanvas({
+    canvas, imgSrc, minimap
+});
+canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if(iCanvas.selectAreaIndex < 0) return;
+      contextMenu.style.display = "block";
+      contextMenu.style.left = e.clientX + "px";
+      contextMenu.style.top = e.clientY + "px";
+});
+deleted.onclick = () => {
+    console.log(iCanvas.selectAreaIndex)
+    iCanvas.delectArea(iCanvas.selectAreaIndex);
+    contextMenu.style.display = "none";
+}
+document.addEventListener("click", (e) => {
+    if (e.target !== deleted) {
+        contextMenu.style.display = "none";
+    }
+});
 btn.onclick = () => {
     iCanvas.addImage('./mg3.png')
 }
@@ -42,8 +81,11 @@ btn2.onclick = () => {
 btn3.onclick = () => {
     iCanvas.undo();
 }
+btn4.onclick = () => {
+    console.log(iCanvas.areas);
+}
 btn5.onclick = () => {
-    iCanvas.single_Event();
+    iCanvas.single_Event(true);
 }
 btn6.onclick = () => {
     iCanvas.setSelect_Event();
