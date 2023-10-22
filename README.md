@@ -15,7 +15,8 @@ npm run dev
 
 效果如下：
 
-![QQ录屏20231009105141 -original-original](https://github.com/zzyyhh22lx/matting/assets/102452253/87a10b83-ed80-4b78-ac93-ce6121f7b36d)
+![QQ录屏20231017173503 -original-original](https://github.com/zzyyhh22lx/matting/assets/102452253/8119f2b6-28a2-45c9-a0dc-60b9c06b86e6)
+
 
 使用：
 ```js
