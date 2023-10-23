@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <script src="./ICanvas/index.js"></script>
+    <script src="./1.js"></script>
     <style>
         img {
             width: 800px;
@@ -43,15 +43,13 @@
     </div>
     <canvas id="minimap" width="160" height="100" style="position: fixed; top: 10px; right: 10px;"></canvas>
     <!-- 鼠标右键菜单栏 -->
-    <div id="context-menu">
-        <button id="deleted">Delete</button>
-    </div>
+
     <script>
 const canvas = document.getElementById("myCanvas");
 const contextMenu = document.getElementById("context-menu");
 const minimap = document.getElementById('minimap');
 
-const imgSrc = "./bg.png";
+const imgSrc = "./h.jpg";
 const iCanvas = new SCanvas({
     canvas, imgSrc, minimap
 });
@@ -73,7 +71,7 @@ document.addEventListener("click", (e) => {
     }
 });
 btn.onclick = () => {
-    iCanvas.addImage('./mg3.png')
+    iCanvas.addImage('./mask/txt.png')
 }
 btn2.onclick = () => {
     base64Img.src = iCanvas.getSelectImage();

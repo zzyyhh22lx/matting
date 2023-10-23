@@ -18,7 +18,7 @@ class historyCache {
         this.cacheMap.push(area);
     }
     get() { // 得到最后一项
-        return this.cacheMap[this.length() - 1];
+        return this.cacheMap[this.length() - 1] ?? [];
     }
     pop() {
         if(this.cache.length >= this.size) {
@@ -91,7 +91,6 @@ function isPointInPolygon(point, polygon) {
     const x = point.x;
     const y = point.y;
     let inside = false;
-
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         const xi = polygon[i].x;
         const yi = polygon[i].y;
@@ -104,7 +103,6 @@ function isPointInPolygon(point, polygon) {
             inside = !inside;
         }
     }
-
     return inside;
 }
 
@@ -234,6 +232,9 @@ class SCanvas {
             this.isDraggingMinimap = true;
             this.dragStartX = e.clientX;
             this.dragStartY = e.clientY;
+            this.minimap.addEventListener("mousemove", this.onWatchMiniMap_M_Event);
+            this.minimap.addEventListener("mouseup", this.onWatchMiniMap_U_Event);
+            this.minimap.addEventListener("mouseout", this.onWatchMiniMap_O_Event);
         }
         this.watchMiniMap_M_Event = (e) => {
             if (this.isDraggingMinimap) {
@@ -243,11 +244,11 @@ class SCanvas {
                 const newOffsetX = this.offsetX - deltaX * (this.WIDTH / this.MINIWIDTH) * this.scale;
                 const newOffsetY = this.offsetY - deltaY * (this.HEIGHT / this.MINIHEIGHT) * this.scale;
 
-                const minOffsetX = (-this.canvas.width * (1 - this.MINIWIDTH / this.WIDTH) * this.scale / 2);
-                const minOffsetY = -this.canvas.height * (1 - this.MINIHEIGHT / this.HEIGHT) * this.scale / 2;
+                const minOffsetX = (1 - this.scale) * this.WIDTH;
+                const minOffsetY = (1 - this.scale) * this.HEIGHT;
                 const maxOffsetX = 0;
                 const maxOffsetY = 0;
-                // 限制偏移量在允许的范围内
+                
                 this.offsetX = Math.min(Math.max(newOffsetX, minOffsetX), maxOffsetX);
                 this.offsetY = Math.min(Math.max(newOffsetY, minOffsetY), maxOffsetY);
 
@@ -260,12 +261,9 @@ class SCanvas {
         this.watchMiniMap_U_Event = () => {
             this.isDraggingMinimap = false;
         }
-        if (minimap) {
-            this.minimap = minimap;
-            this.minimap_ctx = minimap.getContext("2d");
-            this.minimap.addEventListener("mousedown", this.watchMiniMap_D_Event.bind(this));
-            this.minimap.addEventListener("mousemove", this.watchMiniMap_M_Event.bind(this));
-            this.minimap.addEventListener("mouseup", this.watchMiniMap_U_Event.bind(this));
+
+        this.watchMiniMap_O_Event = () => {
+            this.reset_MiniMap_Event();
         }
 
         this.scaleMap = (e) => {
@@ -274,14 +272,34 @@ class SCanvas {
             this.scale += (e.deltaY < 0 ? 1 : -1) * this.scaleStep;
 
             this.scale = Math.max(this.scale, 1); // 不能缩小，只能放大
-            
+
+            // 超出canvas重置
+            if ((-this.offsetX > (this.WIDTH * (this.scale - 1))) || -this.offsetY > (this.HEIGHT * (this.scale - 1))) {
+                this.offsetX = 0;
+                this.offsetY = 0;
+            }
+
             // 重新绘制内容和小地图
             this.drawAll();
             
             this.drawMiniMap();
         }
 
-        this.canvas.addEventListener('wheel', this.scaleMap.bind(this));
+        this.on_WatchMiniMap_D_Event = this.watchMiniMap_D_Event.bind(this);
+        this.onWatchMiniMap_M_Event = this.watchMiniMap_M_Event.bind(this);
+        this.onWatchMiniMap_U_Event = this.watchMiniMap_U_Event.bind(this);
+        this.onWatchMiniMap_O_Event = this.watchMiniMap_O_Event.bind(this);
+        this.on_ScaleMap = this.scaleMap.bind(this);
+
+        if (minimap) {
+            this.minimap = minimap;
+            this.minimap_ctx = minimap.getContext("2d");
+            this.minimap.addEventListener("mousedown", this.on_WatchMiniMap_D_Event);
+            this.minimap.addEventListener("mousemove", this.onWatchMiniMap_M_Event);
+            this.minimap.addEventListener("mouseup", this.onWatchMiniMap_U_Event);
+            this.minimap.addEventListener("mouseout", this.onWatchMiniMap_O_Event);
+            this.canvas.addEventListener('wheel', this.on_ScaleMap);
+        }
 
         this.canvas_clone = document.createElement("canvas");
         this.canvas_clone.width = this.WIDTH;
@@ -311,6 +329,9 @@ class SCanvas {
         this.isMouseDown = false;
         this.isDraw = true;
 
+        /** 是否正在移动长按区域(性能渲染优化) */
+        this.isDrawing = false;
+
         /** 贝塞尔曲线点计数(4,3,3,3..) */
         this.pointCounter = 0;
         /** 贝塞尔曲线是否闭合 */
@@ -325,6 +346,8 @@ class SCanvas {
             this.drawImg(this.ctx_clone, this.img);
             const imageData = this.ctx.getImageData(0, 0, this.WIDTH, this.HEIGHT);
             this.images.push(imageData);
+
+            if (this.minimap_ctx) this.drawImg(this.minimap_ctx, this.img, this.minimap);
         };
 
         // 单点
@@ -351,6 +374,15 @@ class SCanvas {
     }
 
     /**
+     * 重置小地图事件
+     */
+    reset_MiniMap_Event() {
+        this.minimap.removeEventListener("mousemove", this.onWatchMiniMap_M_Event);
+        this.minimap.removeEventListener("mouseup", this.onWatchMiniMap_U_Event);
+        this.minimap.removeEventListener("mouseout", this.onWatchMiniMap_O_Event);
+    }
+
+    /**
      * 获取dom离页面左边上边的距离
      * @param {*} element dom元素
      * @returns 
@@ -374,9 +406,8 @@ class SCanvas {
         const {
             leftDistance, topDistance
         } = this.getElementDistance(element);
-        const x = ((e.pageX - leftDistance )/ this.scale);
-        const y = ((e.pageY - topDistance) / this.scale);
-        console.log(this.scale, this.offsetX);
+        const x = ((e.pageX - leftDistance - this.offsetX) / this.scale);
+        const y = ((e.pageY - topDistance - this.offsetY) / this.scale);
         return {
             x, y
         }
@@ -418,14 +449,16 @@ class SCanvas {
      * this.selectAreaIndex
      * this.selectPointIndex
      * @param {*} e 
-     * @return {pointIndex, areaIndex}
+     * @return { pointIndex, areaIndex }
      */
     findAllIndex(e) {
         const {
             x, y
         } = this.getXY(e, this.canvas); 
         let { pointIndex, areaIndex } = this.findPointIndex(this.ctx, this.areas, x, y); // 先找点，看看用户长按的是不是某个区域的某个点，找到了就不用再找区域了
-        if (areaIndex === -1) areaIndex = this.drawAndFindAreaIndex(this.ctx, this.areas, x, y); //找不到点，再找区域，看看用户是不是长按了某个区域
+        if (areaIndex === -1) {
+            areaIndex = this.findAreaIndex(this.ctx, this.areas, x, y);
+        } //找不到点，再找区域，看看用户是不是长按了某个区域
         
         if (areaIndex >= 0) {
             this.selectAreaIndex = areaIndex;
@@ -542,7 +575,7 @@ class SCanvas {
                     this.pointCounter = 0;
                 }
                 this.drawAll(this.ctx, this.areas);
-                
+                this.drawMiniMap();
                 this.history.push(deepClone(this.areas));
             }
         }
@@ -560,6 +593,7 @@ class SCanvas {
         point.x = x;
         point.y = y;
         this.drawAll(this.ctx, this.areas);
+        this.drawMiniMap();
         this.addHistory();
     }
 
@@ -582,6 +616,7 @@ class SCanvas {
         this.downx = x;
         this.downy = y;
         this.drawAll(this.ctx, this.areas);
+        this.drawMiniMap();
         this.addHistory();
     }
 
@@ -670,7 +705,7 @@ class SCanvas {
                 }
             }
             // Draw points
-            this.drawPoint(this.ctx, areas[bzIndex]);
+            this.drawPoint(ctx, areas[bzIndex]);
         })
     }
 
@@ -732,23 +767,17 @@ class SCanvas {
         p.setRadius(this.PRADIUS);
         area.add(p); // 判断是继续画点的
 
-        // 先画之前所有的区域，在画本次未完成的点线
-        this.drawAll(this.ctx, this.areas.filter((i, j) => (j < this.areas.length - 1 || firstPoint)));
-        this.drawPoint(this.ctx, area);
-        this.ctx.beginPath();
-        this.drawLine(this.ctx, area);
-
         //判断这次画的点是不是这个区域的第一个点，如果是，这个区域就闭合了
         if (index === 0) {
             this.lineStatus = false;
-            this.ctx.closePath();
-            this.ctx.fillStyle = this.COMMON_FILLSTYLE;
-            this.ctx.fill();
-            this.ctx.restore();
 
         } else if(index === -1) { // 新区域首个点，保存数据到数组中
             if (firstPoint) this.areas.push(area);
         }
+
+        // 先画之前所有的区域，在画本次未完成的点线
+        this.drawAll(this.ctx, this.areas);
+        this.drawMiniMap();
 
         this.history.push(deepClone(this.areas));
     }
@@ -777,6 +806,7 @@ class SCanvas {
         this.downx = x;
         this.downy = y;
         this.drawAll(this.ctx, this.areas);
+        this.drawMiniMap();
         this.addHistory();
     }
 
@@ -803,9 +833,7 @@ class SCanvas {
             this.downy = y;
             this.isMouseDown = true;
 
-            let { pointIndex, areaIndex } = this.findPointIndex(this.ctx, this.areas, x, y); // 先找点，看看用户长按的是不是某个区域的某个点，找到了就不用再找区域了
-
-            if (areaIndex === -1) areaIndex = this.drawAndFindAreaIndex(this.ctx, this.areas, x, y); // 找不到点，再找区域，看看用户是不是长按了某个区域
+            let { pointIndex, areaIndex } = this.findAllIndex(e);
 
             if (areaIndex >= 0) {
                 this.canDraw = false;
@@ -824,8 +852,8 @@ class SCanvas {
      */
     onMouseUp(e) {
         this.isMouseDown = false;
-        this.drawAll(this.ctx, this.areas);
-
+        this.selectAreaIndex = -1;
+        this.selectPointIndex = -1;
         this.isDraw = false;
         this.lineStatus = false;
         this.canDraw = true;
@@ -858,7 +886,8 @@ class SCanvas {
             }
             this.downx = x;
             this.downy = y;
-            this.drawAll(this.ctx, this.areas, this.selectAreaIndex);
+            this.drawAll(this.ctx, this.areas);
+            this.drawMiniMap();
         }
     }
 
@@ -868,43 +897,34 @@ class SCanvas {
      * @returns 
      */
     clickPoint(e) {
-        if (!this.canDraw) return; // 判断用户选中了已画的某个区域，就不再画点了
-        let firstPoint = false; // 是不是这个区域的第一个点
-        let area = null;
-        if (!this.lineStatus) { // 第一个点
-            this.lineStatus = true;
-            area = new Area();
-            firstPoint = true;
-        } else if (this.areas.length > 0) {
-            area = this.areas[this.areas.length - 1];
-        }
-        const {
-            x, y
-        } = this.getXY(e, this.canvas);
-        const index = this.clickPointIndex(x, y, area); //判断当前点击的位置在不在已画的某个点上
-        const p = new Point(x, y);
-        p.setColor(this.UPRADIUS);
-        p.setRadius(this.UPRADIUS);
-        area.add(p); // 判断是继续画点的
+            if (!this.canDraw) return; // 判断用户选中了已画的某个区域，就不再画点了
+            let firstPoint = false; // 是不是这个区域的第一个点
+            let area = null;
+            if (!this.lineStatus) { // 第一个点
+                this.lineStatus = true;
+                area = new Area();
+                firstPoint = true;
+            } else if (this.areas.length > 0) {
+                area = this.areas[this.areas.length - 1];
+            }
+            const {
+                x, y
+            } = this.getXY(e, this.canvas);
+            const index = this.clickPointIndex(x, y, area); //判断当前点击的位置在不在已画的某个点上
+            const p = new Point(x, y);
+            p.setColor(this.UPRADIUS);
+            p.setRadius(this.UPRADIUS);
+            area.add(p); // 判断是继续画点的
 
-        // 先画之前所有的区域，在画本次未完成的点线
-        this.drawAll(this.ctx, this.areas.filter((i, j) => (j < this.areas.length - 1 || firstPoint)));
-        this.drawPoint(this.ctx, area);
-        this.ctx.beginPath();
-        this.drawLine(this.ctx, area);
+            if(index === -1) { // 新区域首个点，保存数据到数组中
+                if (firstPoint) this.areas.push(area);
+            }
 
-        if(index === -1) { // 新区域首个点，保存数据到数组中
-            if (firstPoint) this.areas.push(area);
-        }
+            // 先画之前所有的区域，在画本次未完成的点线
+            this.drawAll(this.ctx, this.areas);
+            this.drawMiniMap();
 
-        // lineStatus = false;
-        this.ctx.closePath();
-        this.ctx.fillStyle = this.COMMON_FILLSTYLE;
-        this.ctx.fill();
-
-        this.ctx.restore();
-
-        this.history.push(deepClone(this.areas));
+            this.history.push(deepClone(this.areas));
     }
 
     /**
@@ -914,7 +934,8 @@ class SCanvas {
      * @param canvas
      */
     drawImg(ctx, img, canvas = this.canvas) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const min_clear_size = Math.max(10, 1/this.scale);
+        ctx.clearRect(0, 0, canvas.width * min_clear_size, canvas.height * min_clear_size);
         ctx.globalAlpha = 1;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     }
@@ -931,10 +952,10 @@ class SCanvas {
             ctx.fillStyle = point.color;
             if (point.shape === this.BASESHAPE) {
                 ctx.beginPath();
-                ctx.arc(point.x, point.y, point.radius, 0, Math.PI * 2);
+                ctx.arc(point.x, point.y, point.radius / this.scale, 0, Math.PI * 2);
                 ctx.fill();
             } else if (point.shape === 'square') { // 辅助点
-                ctx.fillRect(point.x - point.radius, point.y - point.radius, point.radius * 2, point.radius * 2);
+                ctx.fillRect(point.x - point.radius / this.scale, point.y - point.radius / this.scale, point.radius * 2 / this.scale, point.radius * 2 / this.scale);
             }
             ctx.closePath();
         })
@@ -977,7 +998,7 @@ class SCanvas {
             //使用勾股定理计算这个点与圆心之间的距离
             const distanceFromCenter = Math.sqrt(Math.pow(p.x - x, 2)
                 + Math.pow(p.y - y, 2));
-            if (distanceFromCenter <= p.radius) {
+            if (distanceFromCenter <= (p.radius / this.scale)) {
                 //停止搜索
                 return i;
             }
@@ -986,7 +1007,7 @@ class SCanvas {
     }
 
     /**
-     * 清空画布，画背景图，画所有区域 并返回带贝塞尔曲线的点[x, x, x](贝塞尔绘画方式不一样)
+     * 画所有矩形区域 并返回带贝塞尔曲线的点[x, x, x](贝塞尔绘画方式不一样)
      * @param {*} ctx 
      * @param {*} areas 
      * @param {*} selectAreaIndex 选择的区域
@@ -1016,37 +1037,24 @@ class SCanvas {
     }
 
     /**
-     * 画所有区域，并且找到当前坐标在哪个区域上，并返回下标
+     * 找到当前坐标在哪个区域上，并返回下标
      * @param {*} ctx 
      * @param {*} areas 
      * @param {*} x 
      * @param {*} y 
      * @returns 
      */
-    drawAndFindAreaIndex(ctx, areas, x, y) {
-        this.drawImg(ctx, this.img);
+    findAreaIndex(ctx, areas, x, y) {
         let index = -1;
-        let bi = 0;
         areas.forEach((area, i) => {
-            this.drawPoint(ctx, area);
-            ctx.beginPath();
-            if (area.isbezier) {
-                // 对于贝塞尔曲线 需要索引 保存曲线路径
-                this.drawLine(ctx, area, bi++);
-            } else {
-                this.drawLine(ctx, area);
-            }
-            ctx.closePath();
             // ctx.isPointInPath检查指定的点是否在当前路径中
             let inPath = null;
             // 因为贝塞尔曲线和其他直线的绘画闭合是不一样的
             if (area.isbezier) {
                 inPath = this.isBzPointInPath(x, y, area.points);
-                this.fillBezier(ctx, area.points);
             } else {
                 inPath = ctx.isPointInPath(x, y);
-                ctx.fillStyle = this.COMMON_FILLSTYLE;
-                ctx.fill();
+                // inPath = isPointInPolygon({x, y}, area.points);
             }
             if (inPath) index = i;
         })
@@ -1119,10 +1127,11 @@ class SCanvas {
      */
     undo() {
         // 思路是保存每一次点于history数组中，栈弹出
-        if (this.history.length() > 1) {
+        if (this.history.length() >= 1) {
             this.history.pop();
             this.areas = this.history.get();
             this.drawAll(this.ctx, this.areas);
+            this.drawMiniMap();
         }
     }
 
@@ -1175,14 +1184,17 @@ class SCanvas {
         this.areas.splice(n, 1);
         this.history.push(deepClone(this.areas));
         this.drawAll(this.ctx, this.areas);
+        this.drawMiniMap();
     }
 
     /**
      * 重置
      */
     reset() {
-        this.drawAll(this.ctx, []);
         this.areas.length = 0;
+        this.drawAll(this.ctx, []);
+        this.drawMiniMap();
+        this.history.push(deepClone(this.areas));
     }
 
     /**
