@@ -742,13 +742,12 @@ class SCanvas {
         this.downx = x;
         this.downy = y;
         this.isMouseDown = true;
-        if (!this.lineStatus) { // 这个状态表示，目前是所有区域都闭合的状态，此时在某个区域长按，可以移动该区域。长按某个区域的路径点，可以伸缩变化改点和区域的位置
-            let { pointIndex, areaIndex } = this.findAllIndex(e);
-            if (areaIndex >= 0) {
-                this.canDraw = false;
-            } else { //没找到，证明用户是想新建区域画点。
-                this.canDraw = true;
-            }
+        // 这个状态表示，目前是所有区域都闭合的状态，此时在某个区域长按，可以移动该区域。长按某个区域的路径点，可以伸缩变化改点和区域的位置
+        let { pointIndex, areaIndex } = this.findAllIndex(e);
+        if (areaIndex >= 0) {
+            this.canDraw = false;
+        } else { //没找到，证明用户是想新建区域画点。
+            this.canDraw = true;
         }
 
         if (!this.canDraw) return; // 判断用户选中了已画的某个区域，就不再画点了
@@ -787,7 +786,7 @@ class SCanvas {
      * @param {*} e 
      */
     onSingleMouseMove(e) {
-        if (!this.isMouseDown || this.lineStatus || this.selectAreaIndex === -1) return;
+        if (!this.isMouseDown || this.selectAreaIndex === -1) return;
         const {
             x, y
         } = this.getXY(e, this.canvas);
@@ -825,6 +824,8 @@ class SCanvas {
      * @param {*} e 
      */
     onMouseDown(e) {
+        // 只有鼠标左键点击才触发
+        if (e.button !== 0) return;
         if (!this.lineStatus) {
             const {
                 x, y
@@ -1007,7 +1008,7 @@ class SCanvas {
     }
 
     /**
-     * 画所有矩形区域 并返回带贝塞尔曲线的点[x, x, x](贝塞尔绘画方式不一样)
+     * 画所有矩形区域(判断是否闭合) 并返回带贝塞尔曲线的点[x, x, x](贝塞尔绘画方式不一样)
      * @param {*} ctx 
      * @param {*} areas 
      * @param {*} selectAreaIndex 选择的区域
@@ -1015,11 +1016,14 @@ class SCanvas {
      */
     drawFillLine(ctx, areas, selectAreaIndex = -1) {
         const bezierIndexs = [];
+        let j = 0;
         for(let i = 0; i < areas.length; i++) {
             const area = areas[i];
             if(area.isbezier) {
                 bezierIndexs.push(i);
                 continue;
+            } else {
+                j = i;
             }
             this.drawPoint(ctx, area);
             ctx.beginPath();
@@ -1032,6 +1036,19 @@ class SCanvas {
                 ctx.fillStyle = this.COMMON_FILLSTYLE
             }
             ctx.fill();
+        }
+        if (areas[j]) {
+            const { points } = areas[j];
+            if (points.length >= 3) { // 三点才能练成图形
+                // 判断闭合
+                const { x, y } = points[points.length - 1];
+                //使用勾股定理计算这个点与圆心之间的距离
+                const distanceFromCenter = Math.sqrt(Math.pow(x - points[0].x, 2)
+                    + Math.pow(y - points[0].y, 2));
+                if (distanceFromCenter <= (points[0].radius / this.scale)) {
+                    this.lineStatus = false;
+                }
+            }
         }
         return bezierIndexs;
     }
@@ -1053,8 +1070,8 @@ class SCanvas {
             if (area.isbezier) {
                 inPath = this.isBzPointInPath(x, y, area.points);
             } else {
-                inPath = ctx.isPointInPath(x, y);
-                // inPath = isPointInPolygon({x, y}, area.points);
+                // inPath = ctx.isPointInPath(x, y);
+                inPath = isPointInPolygon({x, y}, area.points);
             }
             if (inPath) index = i;
         })
@@ -1191,6 +1208,7 @@ class SCanvas {
      * 重置
      */
     reset() {
+        this.scale = 1;
         this.areas.length = 0;
         this.drawAll(this.ctx, []);
         this.drawMiniMap();
